@@ -76,3 +76,66 @@ python3 neis_meal_cli.py set-school "서울고등학교"
 - `MEAL_PROXY_BASE_URL` (CLI용, 기본: `http://127.0.0.1:8787`)
 - `MEAL_PROXY_HOST` (프록시용, 기본: `127.0.0.1`)
 - `MEAL_PROXY_PORT` (프록시용, 기본: `8787`)
+
+## CLI 배포 (GitHub Release 자동화)
+
+이 저장소는 태그를 푸시하면 GitHub Actions가 OS별 실행 파일을 빌드해서 Release에 첨부합니다.
+
+- Linux: `neis-cli`
+- macOS: `neis-cli`
+- Windows: `neis-cli.exe`
+
+워크플로 파일:
+
+- `.github/workflows/release-cli.yml`
+
+릴리스 생성 방법:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+완료되면 GitHub Release의 Assets에서 실행 파일을 내려받아 바로 실행할 수 있습니다.
+
+## 사용자용 실행 방법 (다운로드 후 바로 사용)
+
+1. GitHub Release에서 OS에 맞는 파일을 다운로드
+2. 서버 주소를 환경 변수로 설정
+3. 실행
+
+macOS / Linux:
+
+```bash
+export MEAL_PROXY_BASE_URL="https://YOUR_SERVER_DOMAIN"
+./neis-cli meals
+./neis-cli timetable
+```
+
+Windows PowerShell:
+
+```powershell
+$env:MEAL_PROXY_BASE_URL="https://YOUR_SERVER_DOMAIN"
+.\neis-cli.exe meals
+.\neis-cli.exe timetable
+```
+
+## 서버 배포 가이드 (Render)
+
+1. Render에서 `Web Service` 생성 후 GitHub 저장소 연결
+2. Environment Variables 설정
+   - `NEIS_API_KEY=발급받은키`
+   - `MEAL_PROXY_HOST=0.0.0.0`
+   - `MEAL_PROXY_PORT=10000`
+3. Start Command 설정
+
+```bash
+python3 neis_proxy_server.py
+```
+
+4. Health Check 경로를 `/health`로 설정
+5. 배포 완료 후 발급 URL을 CLI의 `MEAL_PROXY_BASE_URL`로 사용
+
+보안 주의:
+
+- `NEIS_API_KEY`는 서버 환경 변수에만 저장하고 GitHub/CLI에 포함하지 않습니다.
