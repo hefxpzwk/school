@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $false)]
-  [string]$SourceBinary = ".\neis-cli-windows-latest.exe"
+  [string]$SourceBinary = ".\sch-windows-latest.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,10 +10,12 @@ if (-not (Test-Path -Path $SourceBinary -PathType Leaf)) {
 }
 
 $targetDir = Join-Path $env:LOCALAPPDATA "Programs\neis-cli"
-$targetExe = Join-Path $targetDir "neis-cli.exe"
+$targetExe = Join-Path $targetDir "sch.exe"
+$legacyTargetExe = Join-Path $targetDir "neis-cli.exe"
 
 New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
 Copy-Item -Path $SourceBinary -Destination $targetExe -Force
+Copy-Item -Path $SourceBinary -Destination $legacyTargetExe -Force
 
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if (-not $userPath) {
@@ -30,4 +32,4 @@ if ($pathEntries -notcontains $targetDir) {
 }
 
 Write-Output "Installed: $targetExe"
-Write-Output "Open a new PowerShell window, then run: neis-cli meals"
+Write-Output "Open a new PowerShell window, then run: sch food"

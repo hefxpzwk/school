@@ -26,13 +26,13 @@ python3 neis_proxy_server.py
 3) CLI 실행
 
 ```bash
-python3 neis_meal_cli.py meals
+python3 neis_meal_cli.py food
 ```
 
 처음 실행 시 학교 설정이 없으면 학교 이름을 물어보고 1회 저장합니다.
-그 다음부터는 `meals` 또는 `timetable`만 실행하면 됩니다.
+그 다음부터는 `food` 또는 `tt`만 실행하면 됩니다.
 
-시간표(`timetable`)는 학년 설정이 없으면 처음 1회 학년을 물어보고 저장합니다.
+시간표(`tt`)는 학년 설정이 없으면 처음 1회 학년을 물어보고 저장합니다.
 다음부터는 저장된 학년 기준으로 자동 조회합니다.
 
 ```text
@@ -49,9 +49,9 @@ python3 neis_meal_cli.py set-school "서울고등학교" --index 2
 특정 날짜 조회:
 
 ```bash
-python3 neis_meal_cli.py meals --date 20260319
-python3 neis_meal_cli.py timetable --date 20260319
-python3 neis_meal_cli.py timetable --date 20260319 --week
+python3 neis_meal_cli.py food --date 20260319
+python3 neis_meal_cli.py tt --date 20260319
+python3 neis_meal_cli.py tt --date 20260319 --week
 ```
 
 학년 수동 설정:
@@ -66,10 +66,10 @@ python3 neis_meal_cli.py set-grade 2
 
 1. 로컬 프록시(`neis_proxy_server.py`)가 `NEIS_API_KEY`로 NEIS API를 호출
 2. CLI(`neis_meal_cli.py`)는 프록시의 `/schools`, `/meals` 엔드포인트만 사용
-3. `meals` 첫 실행에서 학교명을 입력받아 코드 저장
-4. 이후 `meals` 실행 시 조식/중식/석식을 자동 출력
-5. 이후 `timetable` 실행 시 저장된 학년의 해당 날짜 시간표를 자동 출력
-6. `timetable --week` 실행 시 기준 날짜가 포함된 주(월~금) 전체 시간표를 출력
+3. `food` 첫 실행에서 학교명을 입력받아 코드 저장
+4. 이후 `food` 실행 시 조식/중식/석식을 자동 출력
+5. 이후 `tt` 실행 시 저장된 학년의 해당 날짜 시간표를 자동 출력
+6. `tt --week` 실행 시 기준 날짜가 포함된 주(월~금) 전체 시간표를 출력
 
 원하면 수동으로 미리 설정할 수도 있습니다:
 
@@ -92,9 +92,9 @@ python3 neis_meal_cli.py set-school "서울고등학교"
 
 이 저장소는 태그를 푸시하면 GitHub Actions가 OS별 실행 파일을 빌드해서 Release에 첨부합니다.
 
-- Linux: `neis-cli-ubuntu-latest`
-- macOS: `neis-cli-macos-latest`
-- Windows: `neis-cli-windows-latest.exe`
+- Linux: `sch-ubuntu-latest`
+- macOS: `sch-macos-latest`
+- Windows: `sch-windows-latest.exe`
 
 워크플로 파일:
 
@@ -119,48 +119,48 @@ macOS / Linux:
 
 ```bash
 export MEAL_PROXY_BASE_URL="https://school-wftk.onrender.com"
-./neis-cli-ubuntu-latest meals
-./neis-cli-ubuntu-latest timetable
+./sch-ubuntu-latest food
+./sch-ubuntu-latest tt
 ```
 
 macOS 전용 파일을 받았다면 아래처럼 실행:
 
 ```bash
 export MEAL_PROXY_BASE_URL="https://school-wftk.onrender.com"
-./neis-cli-macos-latest meals
-./neis-cli-macos-latest timetable
+./sch-macos-latest food
+./sch-macos-latest tt
 ```
 
 Windows PowerShell:
 
 ```powershell
 $env:MEAL_PROXY_BASE_URL="https://school-wftk.onrender.com"
-.\neis-cli-windows-latest.exe meals
-.\neis-cli-windows-latest.exe timetable
+.\sch-windows-latest.exe food
+.\sch-windows-latest.exe tt
 ```
 
 ## 어디서든 실행 (전역 설치)
 
-다운로드한 실행 파일을 PATH에 넣으면 어느 폴더에서든 `neis-cli`로 실행할 수 있습니다.
+다운로드한 실행 파일을 PATH에 넣으면 어느 폴더에서든 `sch`로 실행할 수 있습니다.
 
 macOS / Linux:
 
 ```bash
 chmod +x ./scripts/install_cli_unix.sh
-./scripts/install_cli_unix.sh ./neis-cli-ubuntu-latest
-# macOS 파일을 받았다면: ./scripts/install_cli_unix.sh ./neis-cli-macos-latest
+./scripts/install_cli_unix.sh ./sch-ubuntu-latest
+# macOS 파일을 받았다면: ./scripts/install_cli_unix.sh ./sch-macos-latest
 
-neis-cli meals
-neis-cli timetable --week
+sch food
+sch tt --week
 ```
 
 Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install_cli_windows.ps1 -SourceBinary .\neis-cli-windows-latest.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\install_cli_windows.ps1 -SourceBinary .\sch-windows-latest.exe
 
-neis-cli meals
-neis-cli timetable --week
+sch food
+sch tt --week
 ```
 
 ## 서버 배포 가이드 (Render)

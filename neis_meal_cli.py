@@ -492,7 +492,7 @@ def command_timetable(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="NEIS 학교 급식 조회 CLI")
+    parser = argparse.ArgumentParser(prog="sch", description="NEIS 학교 급식/시간표 조회 CLI")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -505,11 +505,11 @@ def build_parser() -> argparse.ArgumentParser:
     set_grade_parser.add_argument("grade", help="학년 (1~9)")
     set_grade_parser.set_defaults(func=command_set_grade)
 
-    meals_parser = sub.add_parser("meals", help="설정된 학교의 급식 조회")
+    meals_parser = sub.add_parser("food", aliases=["meals"], help="설정된 학교의 급식 조회")
     meals_parser.add_argument("--date", help="조회 날짜 (YYYYMMDD), 기본값: 오늘")
     meals_parser.set_defaults(func=command_meals)
 
-    timetable_parser = sub.add_parser("timetable", help="설정된 학교의 시간표 조회")
+    timetable_parser = sub.add_parser("tt", aliases=["timetable"], help="설정된 학교의 시간표 조회")
     timetable_parser.add_argument("--date", help="조회 날짜 (YYYYMMDD), 기본값: 오늘")
     timetable_parser.add_argument("--grade", help="조회 학년 (기본값: 저장된 학년)")
     timetable_parser.add_argument("--week", action="store_true", help="기준 날짜가 포함된 주(월~금) 시간표 조회")

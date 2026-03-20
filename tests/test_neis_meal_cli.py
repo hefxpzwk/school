@@ -16,6 +16,14 @@ SPEC.loader.exec_module(cli)
 
 
 class MealCliTests(unittest.TestCase):
+    def test_parser_supports_food_alias(self):
+        args = cli.build_parser().parse_args(["food", "--date", "20260319"])
+        self.assertIs(args.func, cli.command_meals)
+
+    def test_parser_supports_tt_alias(self):
+        args = cli.build_parser().parse_args(["tt", "--date", "20260319"])
+        self.assertIs(args.func, cli.command_timetable)
+
     def test_format_meal_text_removes_allergy_numbers(self):
         raw = "쌀밥<br/>미역국 (5.6.13.)<br/>제육볶음 (5.10.)"
         dishes = cli.format_meal_text(raw)
