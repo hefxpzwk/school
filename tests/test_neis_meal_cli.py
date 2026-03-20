@@ -86,6 +86,14 @@ class MealCliTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["tt", "--date", "20260319"])
         self.assertIs(args.func, cli.command_timetable)
 
+    def test_parser_supports_set_class_command(self):
+        args = cli.build_parser().parse_args(["set-class", "3"])
+        self.assertIs(args.func, cli.command_set_class)
+
+    def test_parser_supports_set_profile_command(self):
+        args = cli.build_parser().parse_args(["set-profile"])
+        self.assertIs(args.func, cli.command_set_profile)
+
     def test_format_meal_text_removes_allergy_numbers(self):
         raw = "쌀밥<br/>미역국 (5.6.13.)<br/>제육볶음 (5.10.)"
         dishes = cli.format_meal_text(raw)
@@ -174,32 +182,37 @@ class MealCliTests(unittest.TestCase):
             with mock.patch.object(cli, "find_schools", return_value=[selected_school]):
                 with mock.patch.object(cli, "save_school") as mocked_save:
                     with mock.patch.object(cli, "save_grade") as mocked_save_grade:
-                        with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
-                            with mock.patch("builtins.input", side_effect=["테스트고", "1"]):
-                                result = cli.command_timetable(args)
+                        with mock.patch.object(cli, "save_class_name") as mocked_save_class:
+                            with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
+                                with mock.patch("builtins.input", side_effect=["테스트고", "1", "1"]):
+                                    result = cli.command_timetable(args)
 
         self.assertEqual(result, 0)
         mocked_save.assert_called_once_with(selected_school)
         mocked_save_grade.assert_called_once_with("1")
+        mocked_save_class.assert_called_once_with("1")
 
-    def test_command_timetable_uses_saved_grade_and_filters(self):
+    def test_command_timetable_uses_saved_grade_and_class_and_filters(self):
         args = cli.build_parser().parse_args(["timetable", "--date", "20260319"])
         school = cli.School("테스트고", "B10", "7010569")
         timetable_rows = [
             {"grade": "1", "class_name": "1", "period": "1", "subject": "국어"},
+            {"grade": "1", "class_name": "2", "period": "2", "subject": "과학"},
             {"grade": "2", "class_name": "1", "period": "1", "subject": "수학"},
         ]
 
         with mock.patch.object(cli, "get_or_setup_school", return_value=school):
             with mock.patch.object(cli, "load_grade", return_value="1"):
-                with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
-                    with mock.patch("builtins.print") as mocked_print:
-                        result = cli.command_timetable(args)
+                with mock.patch.object(cli, "load_class_name", return_value="1"):
+                    with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
+                        with mock.patch("builtins.print") as mocked_print:
+                            result = cli.command_timetable(args)
 
         self.assertEqual(result, 0)
         printed = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list if call.args)
-        self.assertIn("학년: 1", printed)
+        self.assertIn("학년/반: 1학년 1반", printed)
         self.assertIn("국어", printed)
+        self.assertNotIn("과학", printed)
         self.assertNotIn("수학", printed)
 
     def test_command_timetable_week_mode_fetches_all_weekdays(self):
@@ -211,9 +224,10 @@ class MealCliTests(unittest.TestCase):
 
         with mock.patch.object(cli, "get_or_setup_school", return_value=school):
             with mock.patch.object(cli, "load_grade", return_value="1"):
-                with mock.patch.object(cli, "get_timetable_for_day", side_effect=fake_rows) as mocked_day:
-                    with mock.patch("builtins.print") as mocked_print:
-                        result = cli.command_timetable(args)
+                with mock.patch.object(cli, "load_class_name", return_value="1"):
+                    with mock.patch.object(cli, "get_timetable_for_day", side_effect=fake_rows) as mocked_day:
+                        with mock.patch("builtins.print") as mocked_print:
+                            result = cli.command_timetable(args)
 
         self.assertEqual(result, 0)
         self.assertEqual(mocked_day.call_count, 5)
@@ -229,6 +243,32 @@ class MealCliTests(unittest.TestCase):
                 grade = cli.load_grade()
 
         self.assertEqual(grade, "2")
+
+    def test_set_class_and_load_class(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": temp_dir}, clear=False):
+                cli.save_class_name("3")
+                class_name = cli.load_class_name()
+
+        self.assertEqual(class_name, "3")
+
+    def test_command_set_profile_updates_school_grade_and_class(self):
+        args = cli.build_parser().parse_args(["set-profile"])
+        selected_school = cli.School("테스트고", "B10", "7010569")
+
+        with mock.patch.object(cli, "prompt_and_save_school", return_value=selected_school) as mocked_school:
+            with mock.patch.object(cli, "prompt_and_save_grade", return_value="2") as mocked_grade:
+                with mock.patch.object(cli, "prompt_and_save_class_name", return_value="4") as mocked_class:
+                    with mock.patch("builtins.print") as mocked_print:
+                        result = cli.command_set_profile(args)
+
+        self.assertEqual(result, 0)
+        mocked_school.assert_called_once()
+        mocked_grade.assert_called_once()
+        mocked_class.assert_called_once()
+        printed = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list if call.args)
+        self.assertIn("설정 변경 완료", printed)
+        self.assertIn("학년/반: 2학년 4반", printed)
 
     def test_command_meals_rejects_invalid_calendar_date(self):
         args = cli.build_parser().parse_args(["meals", "--date", "20260230"])
