@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 
-DEFAULT_PROXY_BASE_URL = "http://127.0.0.1:8787"
+DEFAULT_PROXY_BASE_URL = "https://school-wftk.onrender.com"
 MEAL_ORDER = {"조식": 0, "중식": 1, "석식": 2}
 
 
@@ -42,12 +42,18 @@ def config_path() -> Path:
 
 def save_school(school: School) -> None:
     path = config_path()
-    data = {
-        "school": {
-            "name": school.name,
-            "office_code": school.office_code,
-            "school_code": school.school_code,
-        }
+    data: Dict[str, Any] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except (OSError, json.JSONDecodeError):
+            data = {}
+    data["school"] = {
+        "name": school.name,
+        "office_code": school.office_code,
+        "school_code": school.school_code,
     }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,6 +74,57 @@ def load_school() -> School:
             office_code=str(raw["office_code"]),
             school_code=str(raw["school_code"]),
         )
+    except OSError as exc:
+        raise NeisError(f"설정 파일 읽기 실패: {path}") from exc
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise NeisError(f"설정 파일 형식이 잘못되었습니다: {path}") from exc
+
+
+def validate_grade(grade: str) -> Tuple[bool, str]:
+    if not grade:
+        return False, "학년이 비어 있습니다."
+    if not grade.isdigit():
+        return False, "학년은 숫자로 입력해 주세요."
+    grade_num = int(grade)
+    if grade_num < 1 or grade_num > 9:
+        return False, "학년은 1~9 범위로 입력해 주세요."
+    return True, ""
+
+
+def save_grade(grade: str) -> None:
+    is_valid, message = validate_grade(grade)
+    if not is_valid:
+        raise NeisError(message)
+
+    path = config_path()
+    data: Dict[str, Any] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except (OSError, json.JSONDecodeError):
+            data = {}
+
+    data["grade"] = grade
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as exc:
+        raise NeisError(f"설정 파일 저장 실패: {path}") from exc
+
+
+def load_grade() -> str:
+    path = config_path()
+    if not path.exists():
+        raise NeisError("학년 설정이 없습니다. 먼저 `set-grade` 명령을 실행해 주세요.")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        grade = str(payload["grade"]).strip()
+        is_valid, message = validate_grade(grade)
+        if not is_valid:
+            raise NeisError(message)
+        return grade
     except OSError as exc:
         raise NeisError(f"설정 파일 읽기 실패: {path}") from exc
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
@@ -244,10 +301,26 @@ def validate_date(date: str) -> Tuple[bool, str]:
     return True, ""
 
 
+def week_dates_from(date: str) -> List[str]:
+    base = dt.datetime.strptime(date, "%Y%m%d").date()
+    monday = base - dt.timedelta(days=base.weekday())
+    return [(monday + dt.timedelta(days=delta)).strftime("%Y%m%d") for delta in range(5)]
+
+
 def get_or_setup_school() -> School:
     if config_path().exists():
         return load_school()
     return prompt_and_save_school()
+
+
+def prompt_and_save_grade() -> str:
+    grade = input("학년을 입력해 주세요 (예: 1): ").strip()
+    is_valid, message = validate_grade(grade)
+    if not is_valid:
+        raise NeisError(message)
+    save_grade(grade)
+    print(f"학년 설정 완료: {grade}학년")
+    return grade
 
 
 def prompt_and_save_school() -> School:
@@ -307,6 +380,17 @@ def command_set_school(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_set_grade(args: argparse.Namespace) -> int:
+    try:
+        save_grade(str(args.grade))
+    except NeisError as exc:
+        print(str(exc))
+        return 1
+
+    print(f"학년 설정 완료: {args.grade}학년")
+    return 0
+
+
 def command_meals(args: argparse.Namespace) -> int:
     date = args.date or dt.datetime.now().strftime("%Y%m%d")
     is_valid_date, error_message = validate_date(date)
@@ -350,22 +434,59 @@ def command_timetable(args: argparse.Namespace) -> int:
         print(str(exc))
         return 1
 
-    timetable_rows = get_timetable_for_day(school, date)
+    try:
+        if args.grade is not None:
+            selected_grade = str(args.grade)
+            is_valid, message = validate_grade(selected_grade)
+            if not is_valid:
+                print(message)
+                return 1
+        elif config_path().exists():
+            selected_grade = load_grade()
+        else:
+            selected_grade = prompt_and_save_grade()
+    except NeisError:
+        try:
+            selected_grade = prompt_and_save_grade()
+        except NeisError as exc:
+            print(str(exc))
+            return 1
+
+    target_dates = [date]
+    if args.week:
+        target_dates = week_dates_from(date)
 
     print(f"학교: {school.name}")
-    print(f"날짜: {date}")
+    if args.week:
+        print(f"주간: {target_dates[0]} ~ {target_dates[-1]}")
+    else:
+        print(f"날짜: {date}")
+    print(f"학년: {selected_grade}")
 
-    if not timetable_rows:
+    any_rows = False
+    for target_date in target_dates:
+        timetable_rows = get_timetable_for_day(school, target_date)
+        timetable_rows = [row for row in timetable_rows if row["grade"] == selected_grade]
+        if not timetable_rows:
+            if args.week:
+                print(f"\n[{target_date}]")
+                print("해당 날짜의 시간표 정보가 없습니다.")
+            continue
+
+        any_rows = True
+        if args.week:
+            print(f"\n[{target_date}]")
+
+        current_key = None
+        for row in timetable_rows:
+            class_key = (row["grade"], row["class_name"])
+            if class_key != current_key:
+                print(f"\n[{row['grade']}학년 {row['class_name']}반]")
+                current_key = class_key
+            print(f"{row['period']}교시 - {row['subject']}")
+
+    if not any_rows and not args.week:
         print("해당 날짜의 시간표 정보가 없습니다.")
-        return 0
-
-    current_key = None
-    for row in timetable_rows:
-        class_key = (row["grade"], row["class_name"])
-        if class_key != current_key:
-            print(f"\n[{row['grade']}학년 {row['class_name']}반]")
-            current_key = class_key
-        print(f"{row['period']}교시 - {row['subject']}")
 
     return 0
 
@@ -380,12 +501,18 @@ def build_parser() -> argparse.ArgumentParser:
     set_school_parser.add_argument("--index", type=int, help="동명이 학교 선택 번호")
     set_school_parser.set_defaults(func=command_set_school)
 
+    set_grade_parser = sub.add_parser("set-grade", help="기본 학년 설정 (시간표 조회용)")
+    set_grade_parser.add_argument("grade", help="학년 (1~9)")
+    set_grade_parser.set_defaults(func=command_set_grade)
+
     meals_parser = sub.add_parser("meals", help="설정된 학교의 급식 조회")
     meals_parser.add_argument("--date", help="조회 날짜 (YYYYMMDD), 기본값: 오늘")
     meals_parser.set_defaults(func=command_meals)
 
     timetable_parser = sub.add_parser("timetable", help="설정된 학교의 시간표 조회")
     timetable_parser.add_argument("--date", help="조회 날짜 (YYYYMMDD), 기본값: 오늘")
+    timetable_parser.add_argument("--grade", help="조회 학년 (기본값: 저장된 학년)")
+    timetable_parser.add_argument("--week", action="store_true", help="기준 날짜가 포함된 주(월~금) 시간표 조회")
     timetable_parser.set_defaults(func=command_timetable)
 
     return parser

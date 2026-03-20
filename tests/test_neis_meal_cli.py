@@ -79,6 +79,12 @@ class MealCliTests(unittest.TestCase):
             ],
         )
 
+    def test_week_dates_from_returns_monday_to_friday(self):
+        self.assertEqual(
+            cli.week_dates_from("20260319"),
+            ["20260316", "20260317", "20260318", "20260319", "20260320"],
+        )
+
     def test_command_timetable_rejects_invalid_calendar_date(self):
         args = cli.build_parser().parse_args(["timetable", "--date", "20260230"])
 
@@ -97,12 +103,62 @@ class MealCliTests(unittest.TestCase):
         with mock.patch.object(cli, "config_path", return_value=Path("/tmp/missing-config.json")):
             with mock.patch.object(cli, "find_schools", return_value=[selected_school]):
                 with mock.patch.object(cli, "save_school") as mocked_save:
-                    with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
-                        with mock.patch("builtins.input", return_value="테스트고"):
-                            result = cli.command_timetable(args)
+                    with mock.patch.object(cli, "save_grade") as mocked_save_grade:
+                        with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
+                            with mock.patch("builtins.input", side_effect=["테스트고", "1"]):
+                                result = cli.command_timetable(args)
 
         self.assertEqual(result, 0)
         mocked_save.assert_called_once_with(selected_school)
+        mocked_save_grade.assert_called_once_with("1")
+
+    def test_command_timetable_uses_saved_grade_and_filters(self):
+        args = cli.build_parser().parse_args(["timetable", "--date", "20260319"])
+        school = cli.School("테스트고", "B10", "7010569")
+        timetable_rows = [
+            {"grade": "1", "class_name": "1", "period": "1", "subject": "국어"},
+            {"grade": "2", "class_name": "1", "period": "1", "subject": "수학"},
+        ]
+
+        with mock.patch.object(cli, "get_or_setup_school", return_value=school):
+            with mock.patch.object(cli, "load_grade", return_value="1"):
+                with mock.patch.object(cli, "get_timetable_for_day", return_value=timetable_rows):
+                    with mock.patch("builtins.print") as mocked_print:
+                        result = cli.command_timetable(args)
+
+        self.assertEqual(result, 0)
+        printed = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list if call.args)
+        self.assertIn("학년: 1", printed)
+        self.assertIn("국어", printed)
+        self.assertNotIn("수학", printed)
+
+    def test_command_timetable_week_mode_fetches_all_weekdays(self):
+        args = cli.build_parser().parse_args(["timetable", "--date", "20260319", "--week"])
+        school = cli.School("테스트고", "B10", "7010569")
+
+        def fake_rows(_school, date):
+            return [{"grade": "1", "class_name": "1", "period": "1", "subject": f"과목-{date}"}]
+
+        with mock.patch.object(cli, "get_or_setup_school", return_value=school):
+            with mock.patch.object(cli, "load_grade", return_value="1"):
+                with mock.patch.object(cli, "get_timetable_for_day", side_effect=fake_rows) as mocked_day:
+                    with mock.patch("builtins.print") as mocked_print:
+                        result = cli.command_timetable(args)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(mocked_day.call_count, 5)
+        printed = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list if call.args)
+        self.assertIn("주간: 20260316 ~ 20260320", printed)
+        self.assertIn("과목-20260316", printed)
+        self.assertIn("과목-20260320", printed)
+
+    def test_set_grade_and_load_grade(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": temp_dir}, clear=False):
+                cli.save_grade("2")
+                grade = cli.load_grade()
+
+        self.assertEqual(grade, "2")
 
     def test_command_meals_rejects_invalid_calendar_date(self):
         args = cli.build_parser().parse_args(["meals", "--date", "20260230"])
