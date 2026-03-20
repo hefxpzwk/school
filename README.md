@@ -121,6 +121,8 @@ sch set-school "서울고등학교"
 ## Optional 환경 변수
 
 - `MEAL_PROXY_BASE_URL` (CLI용, 기본: `https://school-wftk.onrender.com`)
+- `MEAL_PROXY_TIMEOUT` (CLI 요청 타임아웃 초, 기본: `20`)
+- `MEAL_PROXY_RETRIES` (타임아웃 시 재시도 횟수, 기본: `2`)
 
 ## 설치 후 실행
 
