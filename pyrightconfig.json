@@ -1,0 +1,9 @@
+{
+  "include": [
+    "neis_meal_cli.py",
+    "tests"
+  ],
+  "extraPaths": [
+    "."
+  ]
+}
