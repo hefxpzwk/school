@@ -81,9 +81,9 @@ python3 neis_meal_cli.py set-school "서울고등학교"
 
 이 저장소는 태그를 푸시하면 GitHub Actions가 OS별 실행 파일을 빌드해서 Release에 첨부합니다.
 
-- Linux: `neis-cli`
-- macOS: `neis-cli`
-- Windows: `neis-cli.exe`
+- Linux: `neis-cli-ubuntu-latest`
+- macOS: `neis-cli-macos-latest`
+- Windows: `neis-cli-windows-latest.exe`
 
 워크플로 파일:
 
@@ -108,16 +108,24 @@ macOS / Linux:
 
 ```bash
 export MEAL_PROXY_BASE_URL="https://YOUR_SERVER_DOMAIN"
-./neis-cli meals
-./neis-cli timetable
+./neis-cli-ubuntu-latest meals
+./neis-cli-ubuntu-latest timetable
+```
+
+macOS 전용 파일을 받았다면 아래처럼 실행:
+
+```bash
+export MEAL_PROXY_BASE_URL="https://YOUR_SERVER_DOMAIN"
+./neis-cli-macos-latest meals
+./neis-cli-macos-latest timetable
 ```
 
 Windows PowerShell:
 
 ```powershell
 $env:MEAL_PROXY_BASE_URL="https://YOUR_SERVER_DOMAIN"
-.\neis-cli.exe meals
-.\neis-cli.exe timetable
+.\neis-cli-windows-latest.exe meals
+.\neis-cli-windows-latest.exe timetable
 ```
 
 ## 서버 배포 가이드 (Render)

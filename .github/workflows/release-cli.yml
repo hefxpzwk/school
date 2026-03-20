@@ -33,13 +33,22 @@ jobs:
       - name: Build one-file CLI
         run: pyinstaller --onefile --name neis-cli neis_meal_cli.py
 
+      - name: Rename binary with OS suffix
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mv dist/neis-cli.exe dist/neis-cli-${{ matrix.os }}.exe
+          else
+            mv dist/neis-cli dist/neis-cli-${{ matrix.os }}
+          fi
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: neis-cli-${{ matrix.os }}
           path: |
-            dist/neis-cli
-            dist/neis-cli.exe
+            dist/neis-cli-${{ matrix.os }}
+            dist/neis-cli-${{ matrix.os }}.exe
 
   release:
     name: Publish GitHub Release assets
@@ -76,6 +85,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/**/neis-cli
-            artifacts/**/neis-cli.exe
+            artifacts/**/neis-cli-ubuntu-latest
+            artifacts/**/neis-cli-macos-latest
+            artifacts/**/neis-cli-windows-latest.exe
             artifacts/SHA256SUMS.txt
