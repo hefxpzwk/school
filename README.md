@@ -9,6 +9,47 @@
 - Python 3.10+
 - Python standard library only (no external dependencies)
 
+## 설치 (복사해서 바로 실행)
+
+아래 명령을 그대로 복사해서 실행하면 `sch`가 전역 설치됩니다.
+
+macOS (zsh/bash):
+
+```bash
+mkdir -p "$HOME/.local/bin" \
+&& curl -fsSL "https://github.com/hefxpzwk/school/releases/latest/download/sch-macos-latest" -o "$HOME/.local/bin/sch" \
+&& chmod +x "$HOME/.local/bin/sch" \
+&& export PATH="$HOME/.local/bin:$PATH" \
+&& echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+```
+
+Linux (bash):
+
+```bash
+mkdir -p "$HOME/.local/bin" \
+&& curl -fsSL "https://github.com/hefxpzwk/school/releases/latest/download/sch-ubuntu-latest" -o "$HOME/.local/bin/sch" \
+&& chmod +x "$HOME/.local/bin/sch" \
+&& export PATH="$HOME/.local/bin:$PATH" \
+&& echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+```
+
+Windows PowerShell:
+
+```powershell
+$InstallDir = Join-Path $env:LOCALAPPDATA "Programs\sch"
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Invoke-WebRequest -Uri "https://github.com/hefxpzwk/school/releases/latest/download/sch-windows-latest.exe" -OutFile (Join-Path $InstallDir "sch.exe")
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (-not ($userPath -split ";" | Where-Object { $_ -eq $InstallDir })) {
+  if ([string]::IsNullOrWhiteSpace($userPath)) {
+    [Environment]::SetEnvironmentVariable("Path", $InstallDir, "User")
+  } else {
+    [Environment]::SetEnvironmentVariable("Path", "$userPath;$InstallDir", "User")
+  }
+}
+Write-Output "새 PowerShell 창을 연 뒤: sch food"
+```
+
 ## Quick Start
 
 서버가 이미 배포되어 있으므로 전역 명령 `sch`만으로 바로 사용할 수 있습니다.
@@ -81,9 +122,9 @@ sch set-school "서울고등학교"
 
 - `MEAL_PROXY_BASE_URL` (CLI용, 기본: `https://school-wftk.onrender.com`)
 
-## 어디서든 실행
+## 설치 후 실행
 
-전역 명령 `sch`를 사용할 수 있는 환경이라면 어느 폴더에서든 아래처럼 실행하면 됩니다.
+설치가 끝나면 어느 폴더에서든 아래처럼 실행하면 됩니다.
 
 ```bash
 sch food
