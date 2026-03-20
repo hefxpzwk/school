@@ -15,7 +15,69 @@ sys.modules["neis_meal_cli"] = cli
 SPEC.loader.exec_module(cli)
 
 
+def json_bytes(payload):
+    return cli.json.dumps(payload).encode("utf-8")
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return json_bytes(self._payload)
+
+
 class MealCliTests(unittest.TestCase):
+    def test_proxy_get_raises_neis_error_on_timeout(self):
+        with mock.patch.object(cli.urllib.request, "urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaises(cli.NeisError) as ctx:
+                cli.proxy_get("/meals", {"date": "20260319"})
+
+        self.assertIn("응답 대기 시간이 초과", str(ctx.exception))
+
+    def test_proxy_get_retries_before_success(self):
+        payload = {"ok": True}
+        responses = [
+            TimeoutError("timed out"),
+            FakeResponse(payload),
+        ]
+
+        def side_effect(*_args, **_kwargs):
+            item = responses.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+        with mock.patch.dict(os.environ, {"MEAL_PROXY_RETRIES": "1", "MEAL_PROXY_TIMEOUT": "1"}, clear=False):
+            with mock.patch.object(cli.urllib.request, "urlopen", side_effect=side_effect):
+                result = cli.proxy_get("/meals", {"date": "20260319"})
+
+        self.assertEqual(result, payload)
+
+    def test_proxy_get_handles_urlerror_timeout_reason(self):
+        timeout_reason = TimeoutError("timed out")
+        url_timeout = cli.urllib.error.URLError(timeout_reason)
+        with mock.patch.dict(os.environ, {"MEAL_PROXY_RETRIES": "0", "MEAL_PROXY_TIMEOUT": "1"}, clear=False):
+            with mock.patch.object(cli.urllib.request, "urlopen", side_effect=url_timeout):
+                with self.assertRaises(cli.NeisError) as ctx:
+                    cli.proxy_get("/meals", {"date": "20260319"})
+
+        self.assertIn("응답 대기 시간이 초과", str(ctx.exception))
+
+    def test_proxy_get_handles_urlerror_non_timeout_reason(self):
+        url_error = cli.urllib.error.URLError("connection refused")
+        with mock.patch.object(cli.urllib.request, "urlopen", side_effect=url_error):
+            with self.assertRaises(cli.NeisError) as ctx:
+                cli.proxy_get("/meals", {"date": "20260319"})
+
+        self.assertIn("프록시 연결 오류", str(ctx.exception))
+
     def test_parser_supports_food_alias(self):
         args = cli.build_parser().parse_args(["food", "--date", "20260319"])
         self.assertIs(args.func, cli.command_meals)

@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import errno
 import json
 import os
 import re
+import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,6 +20,8 @@ from typing import Any, Dict, List, Tuple
 
 
 DEFAULT_PROXY_BASE_URL = "https://school-wftk.onrender.com"
+DEFAULT_PROXY_TIMEOUT_SECONDS = 20
+DEFAULT_PROXY_MAX_RETRIES = 2
 MEAL_ORDER = {"조식": 0, "중식": 1, "석식": 2}
 
 
@@ -135,33 +140,85 @@ def proxy_base_url() -> str:
     return os.environ.get("MEAL_PROXY_BASE_URL", DEFAULT_PROXY_BASE_URL).rstrip("/")
 
 
+def proxy_timeout_seconds() -> int:
+    raw = os.environ.get("MEAL_PROXY_TIMEOUT", str(DEFAULT_PROXY_TIMEOUT_SECONDS)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = DEFAULT_PROXY_TIMEOUT_SECONDS
+    return max(1, value)
+
+
+def proxy_max_retries() -> int:
+    raw = os.environ.get("MEAL_PROXY_RETRIES", str(DEFAULT_PROXY_MAX_RETRIES)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = DEFAULT_PROXY_MAX_RETRIES
+    return max(0, value)
+
+
+def is_timeout_error(err: object) -> bool:
+    if isinstance(err, (TimeoutError, socket.timeout)):
+        return True
+    if isinstance(err, OSError) and err.errno == errno.ETIMEDOUT:
+        return True
+    if isinstance(err, BaseException):
+        text = str(err).lower()
+        if "timed out" in text or "timeout" in text:
+            return True
+    return False
+
+
 def proxy_get(path: str, params: Dict[str, str]) -> Dict[str, Any]:
     url = f"{proxy_base_url()}{path}?{urllib.parse.urlencode(params)}"
     request = urllib.request.Request(url=url, method="GET")
+    timeout_seconds = proxy_timeout_seconds()
+    max_retries = proxy_max_retries()
+    body = ""
 
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            body = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
+    for attempt in range(max_retries + 1):
         try:
-            payload = json.loads(raw)
-            message = ""
-            error_obj = payload.get("error")
-            if isinstance(error_obj, dict):
-                message = str(error_obj.get("message", "")).strip()
-            elif error_obj is not None:
-                message = str(error_obj).strip()
-            if not message:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                body = response.read().decode("utf-8")
+            break
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            try:
+                payload = json.loads(raw)
+                message = ""
+                error_obj = payload.get("error")
+                if isinstance(error_obj, dict):
+                    message = str(error_obj.get("message", "")).strip()
+                elif error_obj is not None:
+                    message = str(error_obj).strip()
+                if not message:
+                    message = raw
+            except json.JSONDecodeError:
                 message = raw
-        except json.JSONDecodeError:
-            message = raw
-        raise NeisError(f"프록시 요청 실패 ({exc.code}): {message}") from exc
-    except urllib.error.URLError as exc:
-        raise NeisError(
-            "프록시 연결 오류: 로컬 프록시 서버가 실행 중인지 확인해 주세요. "
-            "(python3 neis_proxy_server.py)"
-        ) from exc
+            raise NeisError(f"프록시 요청 실패 ({exc.code}): {message}") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            if attempt < max_retries:
+                time.sleep(0.4 * (attempt + 1))
+                continue
+            raise NeisError(
+                f"프록시 응답 대기 시간이 초과되었습니다 ({timeout_seconds}초). "
+                "잠시 후 다시 시도해 주세요."
+            ) from exc
+        except urllib.error.URLError as exc:
+            reason = getattr(exc, "reason", None)
+            if is_timeout_error(reason):
+                if attempt < max_retries:
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                raise NeisError(
+                    f"프록시 응답 대기 시간이 초과되었습니다 ({timeout_seconds}초). "
+                    "잠시 후 다시 시도해 주세요."
+                ) from exc
+            raise NeisError(
+                f"프록시 연결 오류: {proxy_base_url()} 에 연결할 수 없습니다. "
+                "네트워크 상태를 확인하거나 잠시 후 다시 시도해 주세요."
+            ) from exc
 
     try:
         payload = json.loads(body)
