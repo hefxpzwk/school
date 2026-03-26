@@ -10,6 +10,7 @@ import json
 import os
 import re
 import socket
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -266,9 +267,14 @@ def proxy_get(path: str, params: Dict[str, str]) -> Dict[str, Any]:
                     f"프록시 응답 대기 시간이 초과되었습니다 ({timeout_seconds}초). "
                     "잠시 후 다시 시도해 주세요."
                 ) from exc
+            reason_text = ""
+            if reason is not None:
+                reason_text = str(reason).strip()
+            if not reason_text:
+                reason_text = "알 수 없는 네트워크 오류"
             raise NeisError(
                 f"프록시 연결 오류: {proxy_base_url()} 에 연결할 수 없습니다. "
-                "네트워크 상태를 확인하거나 잠시 후 다시 시도해 주세요."
+                f"(원인: {reason_text}) 네트워크 상태를 확인하거나 잠시 후 다시 시도해 주세요."
             ) from exc
 
     try:
@@ -688,9 +694,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def normalize_cli_argv(argv: List[str] | None) -> List[str]:
+    args = list(sys.argv[1:] if argv is None else argv)
+    normalized: List[str] = []
+    for arg in args:
+        if arg in {"-help", "/help", "/?"}:
+            normalized.append("--help")
+        else:
+            normalized.append(arg)
+
+    if normalized and normalized[0] == "help":
+        if len(normalized) == 1:
+            return ["--help"]
+        return [normalized[1], "--help", *normalized[2:]]
+
+    return normalized
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(normalize_cli_argv(argv))
 
     try:
         return args.func(args)

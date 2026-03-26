@@ -94,6 +94,24 @@ class MealCliTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["set-profile"])
         self.assertIs(args.func, cli.command_set_profile)
 
+    def test_normalize_cli_argv_maps_dash_help_to_double_dash_help(self):
+        normalized = cli.normalize_cli_argv(["-help"])
+        self.assertEqual(normalized, ["--help"])
+
+    def test_normalize_cli_argv_maps_help_command_to_subcommand_help(self):
+        normalized = cli.normalize_cli_argv(["help", "tt"])
+        self.assertEqual(normalized, ["tt", "--help"])
+
+    def test_main_supports_dash_help(self):
+        with self.assertRaises(SystemExit) as ctx:
+            cli.main(["-help"])
+        self.assertEqual(ctx.exception.code, 0)
+
+    def test_main_supports_subcommand_dash_help(self):
+        with self.assertRaises(SystemExit) as ctx:
+            cli.main(["food", "-help"])
+        self.assertEqual(ctx.exception.code, 0)
+
     def test_format_meal_text_removes_allergy_numbers(self):
         raw = "쌀밥<br/>미역국 (5.6.13.)<br/>제육볶음 (5.10.)"
         dishes = cli.format_meal_text(raw)

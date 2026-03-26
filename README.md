@@ -66,6 +66,12 @@ export MEAL_PROXY_BASE_URL="https://school-wftk.onrender.com"
 sch food
 sch tt
 sch tt --week
+# 도움말
+sch --help
+sch -help
+sch /help
+sch /?
+sch help tt
 ```
 
 처음 실행 시 학교 설정이 없으면 학교 이름을 물어보고 1회 저장합니다.
@@ -91,6 +97,13 @@ sch set-school "서울고등학교" --index 2
 sch food --date 20260319
 sch tt --date 20260319
 sch tt --date 20260319 --week
+```
+
+명령 별칭:
+
+```bash
+sch meals         # sch food 와 동일
+sch timetable     # sch tt 와 동일
 ```
 
 학년 수동 설정:
@@ -146,3 +159,19 @@ sch tt
 sch tt --week
 sch tt --class 3
 ```
+
+## Maintainer 배포
+
+GitHub Actions 릴리즈 워크플로는 `v*` 태그 푸시 시 실행됩니다.
+
+```bash
+git tag v1.0.6
+git push origin main --tags
+```
+
+릴리즈가 완료되면 아래 자산이 자동 업로드됩니다.
+
+- `sch-ubuntu-latest`
+- `sch-macos-latest`
+- `sch-windows-latest.exe`
+- `SHA256SUMS.txt`
